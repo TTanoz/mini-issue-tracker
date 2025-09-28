@@ -1,7 +1,7 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-
+from sqlalchemy import asc, desc
 from app.db.session import get_db
 from app.models.user import User
 from app.models.project import Project
@@ -24,18 +24,26 @@ def create_issue(project_id: int, payload: IssueCreate, db: Annotated[Session, D
                   project_id = project_id, reporter_id = me.id, assignee_id = payload.assignee_id)
     db.add(issue);db.commit();db.refresh(issue)
     return issue
-
-@routerprojectissue.get("/{project_id}/issues", response_model=list[IssueRead])
-def list_project_issues(project_id: int,db: Annotated[Session, Depends(get_db)],
+@routerprojectissue.get("/{project_id}/issues",response_model=list[IssueRead],dependencies=[Depends(get_current_user)])
+def list_project_issues(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    q: str | None = Query(None, description="Filter by issue title (icontains)"),
+    sort_by: Literal["id", "title", "status", "priority", "created_at", "updated_at", "assignee_id", "reporter_id"] = "id",
+    sort_dir: Literal["asc", "desc"] = "asc",
 ) -> list[IssueRead]:
     if not db.get(Project, project_id):
         raise HTTPException(status_code=404, detail="Project not found")
-    issues = (
-        db.query(Issue)
-        .filter(Issue.project_id == project_id)
-        .order_by(Issue.id.desc())
-        .all()
-    )
+
+    query = db.query(Issue).filter(Issue.project_id == project_id)
+    if q:
+        query = query.filter(Issue.title.ilike(f"%{q}%"))
+    col = getattr(Issue, sort_by)
+    order = asc(col) if sort_dir == "asc" else desc(col)
+    query = query.order_by(order)
+    issues = query.offset(skip).limit(limit).all()
     return issues
 
 @router.get("/{issue_id}", response_model=IssueRead)

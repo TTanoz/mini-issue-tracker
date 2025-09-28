@@ -1,7 +1,7 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-
+from sqlalchemy import asc, desc
 from app.db.session import get_db
 from app.models.user import User
 from app.models.comment import Comment
@@ -22,12 +22,23 @@ def create_comment(issue_id: int, payload: CommentCreate, db: Annotated[Session,
     db.add(comment); db.commit(); db.refresh(comment)
     return comment
 
-@routerissuecomment.get("/{issue_id}/comments", response_model = list[CommentRead])
-def list_comments(issue_id: int, db: Annotated[Session, Depends(get_db)],
+@routerissuecomment.get("/{issue_id}/comments", response_model = list[CommentRead],dependencies=[Depends(get_current_user)])
+def list_comments(issue_id: int, db: Annotated[Session, Depends(get_db),],
+                  skip: int = Query(0, ge=0),
+                  limit: int = Query(50, ge=1, le=200),
+                  q: str | None = Query(None, description="Filter by comment content (icontains)"),
+                  sort_by: Literal["id", "content", "issue_id", "author_id", "created_at", "updated_at"] = "id",
+                  sort_dir: Literal["asc", "desc"] = "asc"
 ) -> list[CommentRead]:
     if not db.get(Issue, issue_id):
         raise HTTPException(status_code=404, detail="Issue not found")
-    comments = (db.query(Comment).filter(Comment.issue_id == issue_id).order_by(Comment.id.desc()).all())
+    query = db.query(Comment).filter(Comment.issue_id == issue_id)
+    if q:
+        query = query.filter(Comment.content.ilike(f"%{q}%"))
+    col = getattr(Comment, sort_by)
+    order = asc(col) if sort_dir == "asc" else desc(col)
+    query = query.order_by(order)
+    comments = query.offset(skip).limit(limit).all()
     return comments
 
 @router.get("/{comment_id}", response_model = CommentRead)

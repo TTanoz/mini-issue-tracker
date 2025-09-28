@@ -1,8 +1,8 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from sqlalchemy import asc, desc
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserRead
@@ -33,8 +33,21 @@ def change_password(
     return
 
 @router.get("/", response_model=list[UserRead], dependencies=[Depends(get_current_user)])
-def list_users(db: Annotated[Session, Depends(get_db)]) -> list[UserRead]:
-    return db.query(User).order_by(User.id.asc()).all()
+def list_users(db: Annotated[Session, Depends(get_db)],
+               skip: int = Query(0, ge=0),
+               limit: int = Query(50, ge=1, le=200),
+               q: str | None = Query(None, description="Filter by username (icontains)"),
+               sort_by: Literal["id", "username", "created_at"] = "id",
+               sort_dir: Literal["asc", "desc"] = "asc") -> list[UserRead]:
+    query = db.query(User)
+    if q:
+        query = query.filter(User.username.ilike(f"%{q}%"))
+    col = getattr(User, sort_by)
+    order = asc(col) if sort_dir == "asc" else desc(col)
+    query = query.order_by(order)
+    users = query.offset(skip).limit(limit).all()
+    return users
+
 
 @router.get("/{user_id}", response_model=UserRead, dependencies=[Depends(get_current_user)])
 def get_user(

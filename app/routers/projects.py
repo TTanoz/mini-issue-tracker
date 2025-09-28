@@ -1,7 +1,7 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, Literal
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-
+from sqlalchemy import asc, desc
 from app.db.session import get_db
 from app.models.user import User
 from app.models.project import Project
@@ -22,9 +22,21 @@ def create_project(payload: ProjectCreate, db: Annotated[Session, Depends(get_db
     db.refresh(project)
     return project
 
-@router.get("", response_model=list[ProjectRead])
-def list_projects(db: Annotated[Session, Depends(get_db)]) -> list[ProjectRead]:
-    return db.query(Project).order_by(Project.id.desc()).all()
+@router.get("", response_model=list[ProjectRead], dependencies=[Depends(get_current_user)])
+def list_projects(db: Annotated[Session, Depends(get_db)],
+                  skip: int = Query(0, ge=0),
+                  limit: int = Query(50, ge=1, le=100),
+                  q: str | None = Query(None, description="Filter by name (icontains)"),
+                  sort_by: Literal["id", "name", "owner_id"] = "id",
+                  sort_dir: Literal["asc", "desc"] = "asc") -> list[ProjectRead]:
+    query = db.query(Project)
+    if q:
+        query = query.filter(Project.name.ilike(f"%{q}%"))
+    col = getattr(Project, sort_by)
+    order = asc(col) if sort_dir == "asc" else desc(col)
+    query = query.order_by(order)
+    projects = query.offset(skip).limit(limit).all()
+    return projects
 
 @router.get("/{project_id}", response_model=ProjectRead)
 def get_one_project(project_id: int, db: Annotated[Session, Depends(get_db)]):
