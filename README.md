@@ -1,6 +1,7 @@
-# Mini Issue Tracker
+# Mini Issue Tracker (with Alembic)
 
 A **FastAPI-based issue tracking system** featuring authentication, projects, issues, and comments.  
+Now extended with **Alembic migrations** for database schema management.  
 This repository includes a full pytest suite running against PostgreSQL (configured via `.env`).
 
 ---
@@ -9,6 +10,8 @@ This repository includes a full pytest suite running against PostgreSQL (configu
 
 ```
 issue-tracker/
+  alembic/               # Migration scripts
+  alembic.ini            # Alembic config
   app/
     core/
       config.py
@@ -46,6 +49,7 @@ issue-tracker/
     test_issues.py
     test_projects.py
     test_users.py
+  .env
   .gitignore
   pytest.ini
   requirements.txt
@@ -62,6 +66,7 @@ issue-tracker/
 - **SQLAlchemy 2.0** (ORM)
 - **Pydantic v2** (validation & serialization)
 - **PostgreSQL** (development & tests)
+- **Alembic** (migrations)
 - **Pytest** (test runner)
 
 ---
@@ -78,14 +83,12 @@ cd mini-issue-tracker
 ### 2) Create & activate virtualenv
 
 **Windows (PowerShell):**
-
 ```powershell
 python -m venv venv
 .env\Scripts\Activate.ps1
 ```
 
 **macOS / Linux:**
-
 ```bash
 python3 -m venv venv
 source venv/bin/activate
@@ -111,11 +114,33 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 > Make sure the PostgreSQL databases exist (create them if not):
->
 > ```sql
 > CREATE DATABASE mini_issue_tracker;
 > CREATE DATABASE mini_issue_tracker_test;
 > ```
+
+---
+
+## Run Database Migrations (Alembic)
+
+Initialize migrations (already in repo):
+
+```bash
+alembic upgrade head
+```
+
+Create new revision when schema changes:
+
+```bash
+alembic revision --autogenerate -m "add new field"
+alembic upgrade head
+```
+
+Rollback:
+
+```bash
+alembic downgrade -1
+```
 
 ---
 
@@ -133,26 +158,22 @@ uvicorn app.main:app --reload
 ## API Overview
 
 ### Auth
-
 - `POST /auth/register` – create user
 - `POST /auth/login` – obtain JWT
 
 ### Users
-
 - `GET /users/me` – current user
 - `POST /users/me/change-password` – change password
 - `GET /users` – list users (auth required)
 - `GET /users/{user_id}` – user detail (auth required)
 
 ### Projects
-
 - `POST /projects` – create
 - `GET /projects` – list
 - `GET /projects/{project_id}` – detail
 - `DELETE /projects/{project_id}` – delete (owner only)
 
 ### Issues
-
 - `POST /projects/{project_id}/issues` – create
 - `GET /projects/{project_id}/issues` – list (by project)
 - `GET /issues/{issue_id}` – detail
@@ -160,7 +181,6 @@ uvicorn app.main:app --reload
 - `DELETE /issues/{issue_id}` – delete (reporter only)
 
 ### Comments
-
 - `POST /issues/{issue_id}/comments` – create
 - `GET /issues/{issue_id}/comments` – list (by issue)
 - `GET /comments/{comment_id}` – detail
@@ -173,19 +193,11 @@ uvicorn app.main:app --reload
 
 1. Ensure `TEST_DATABASE_URL` is set in `.env` and the database exists.
 2. Run:
-
 ```bash
 pytest -v
 ```
 
 Pytest is configured to use **PostgreSQL** via `tests/conftest.py`; tables are created/dropped around each test, keeping tests isolated.
-
----
-
-## Tips
-
-- If you see `ModuleNotFoundError` for `app.*`, make sure you run commands **from the project root** and use `uvicorn app.main:app` (not `uvicorn main:app`).
-- In development, `Base.metadata.create_all()` is called in `lifespan` to create tables. In production, prefer migrations (e.g., Alembic).
 
 ---
 
