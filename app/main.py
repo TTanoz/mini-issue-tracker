@@ -10,12 +10,12 @@ from app.models import project as _m_project
 from app.models import issue as _m_issue
 from app.models import comment as _m_comment
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
+#@asynccontextmanager
+#async def lifespan(app: FastAPI):
+#    Base.metadata.create_all(bind=engine)
+#    yield
 
-app = FastAPI(title="Mini issue-tracker", lifespan=lifespan)
+app = FastAPI(title="Mini issue-tracker") #lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(users.router)
