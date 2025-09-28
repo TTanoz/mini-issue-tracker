@@ -27,7 +27,7 @@ def test_comment_crud_and_permissions(client):
     assert c.status_code == 201, c.text
     cid = c.json()["id"]
 
-    lst = client.get(f"/issues/{iid}/comments")
+    lst = client.get(f"/issues/{iid}/comments", headers=auth_headers(ta))
     assert lst.status_code == 200
     assert any(x["id"] == cid for x in lst.json())
 

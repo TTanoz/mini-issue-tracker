@@ -8,7 +8,7 @@ def test_create_list_get_delete_project(client):
     assert c.status_code == 201, c.text
     pid = c.json()["id"]
 
-    lst = client.get("/projects")
+    lst = client.get("/projects", headers=auth_headers(tok))
     assert lst.status_code == 200
     assert any(p["id"] == pid for p in lst.json())
 

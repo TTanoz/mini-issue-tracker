@@ -19,7 +19,7 @@ def test_issue_create_list_get_patch_delete(client):
     assert c.status_code == 201, c.text
     issue_id = c.json()["id"]
 
-    lst = client.get(f"/projects/{pid}/issues")
+    lst = client.get(f"/projects/{pid}/issues", headers=auth_headers(tr))
     assert lst.status_code == 200
     assert any(i["id"] == issue_id for i in lst.json())
 
