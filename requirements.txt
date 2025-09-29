@@ -5,6 +5,7 @@ psycopg2-binary
 pydantic>=2.0
 python-jose[cryptography]
 passlib[bcrypt]
+alembic
 
 # Testing
 pytest
